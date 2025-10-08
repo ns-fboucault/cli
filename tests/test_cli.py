@@ -316,6 +316,43 @@ class TestArgumentParser:
                 key='old_item', value='b', sep='=', orig='old_item=b'),
         ]
 
+    def test_guess_method_none_with_request_items_gives_helpful_error(self):
+        """
+        Regression test for #1614: method=None with request_items should give
+        helpful error message, not AssertionError.
+
+        Verifies that when _guess_method() encounters method=None with populated
+        request_items, it calls self.error() with a helpful message instead of
+        raising an AssertionError.
+        """
+        from unittest.mock import Mock
+
+        # Set up the problematic state: method=None with request_items
+        self.parser.args = argparse.Namespace()
+        self.parser.args.method = None
+        self.parser.args.url = 'http://example.com/'
+        self.parser.args.request_items = [
+            KeyValueArg(key='data', value='field', sep='=', orig='data=field')
+        ]
+        self.parser.args.ignore_stdin = False
+        self.parser.env = MockEnvironment()
+        self.parser.has_input_data = False
+
+        # Mock self.error() to verify it's called with the right message
+        self.parser.error = Mock(side_effect=SystemExit(2))
+
+        # Call _guess_method() and verify behavior
+        with pytest.raises(SystemExit):
+            self.parser._guess_method()
+
+        # Verify error() was called (not AssertionError raised)
+        assert self.parser.error.called, "error() should be called"
+
+        # Verify the error message is helpful
+        error_message = self.parser.error.call_args[0][0]
+        assert 'unable to parse arguments' in error_message
+        assert 'request items without an HTTP method' in error_message
+
 
 class TestNoOptions:
 

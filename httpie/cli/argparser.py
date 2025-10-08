@@ -413,7 +413,16 @@ class HTTPieArgumentParser(BaseHTTPieArgumentParser):
         """
         if self.args.method is None:
             # Invoked as `http URL'.
-            assert not self.args.request_items
+            if self.args.request_items:
+                # This can happen in edge cases when positional arguments are
+                # provided in an unexpected order, causing argparse to misparse.
+                # Provide a helpful error message instead of an assertion failure.
+                self.error(
+                    'unable to parse arguments: received request items without an HTTP method. '
+                    'Please specify the URL before any request items, '
+                    'or provide an explicit METHOD. '
+                    'Expected: http [METHOD] URL [REQUEST_ITEM ...]'
+                )
             if self.has_input_data:
                 self.args.method = HTTP_POST
             else:

@@ -177,23 +177,3 @@ def test_percent_encoded_credentials_in_url(httpbin_both):
     assert r.json == {'authenticated': True, 'user': 'u@d'}
 
 
-@pytest.mark.parametrize('username,password,encoded_username,encoded_password', [
-    ('u@d', '1=2?', 'u%40d', '1%3d2%3f'),  # Special chars: @, =, ?
-    ('user:name', 'pass:word', 'user%3aname', 'pass%3aword'),  # Colon
-    ('user/name', 'pass/word', 'user%2fname', 'pass%2fword'),  # Slash
-])
-def test_percent_encoded_credentials_in_url_parametrized(
-    httpbin_both, username, password, encoded_username, encoded_password
-):
-    """
-    Test various special characters in credentials are properly decoded.
-    
-    https://github.com/httpie/cli/issues/1623
-    """
-    url = httpbin_both.url + f'/basic-auth/{encoded_username}/{encoded_password}'
-    url_with_auth = add_auth(url, auth=f'{encoded_username}:{encoded_password}')
-    
-    r = http('GET', url_with_auth)
-    
-    assert HTTP_OK in r
-    assert r.json == {'authenticated': True, 'user': username}

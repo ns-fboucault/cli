@@ -158,9 +158,9 @@ def test_ignore_netrc_null_auth():
 def test_percent_encoded_credentials_in_url(httpbin_both):
     """
     Test that percent-encoded characters in URL credentials are decoded.
-    
+
     https://github.com/httpie/cli/issues/1623
-    
+
     When credentials contain special characters (like @, =, ?) they need to be
     percent-encoded in the URL. HTTPie should decode these before using them
     for authentication.
@@ -169,11 +169,9 @@ def test_percent_encoded_credentials_in_url(httpbin_both):
     # Percent-encoded: username="u%40d", password="1%3d2%3f"
     url = httpbin_both.url + '/basic-auth/u%40d/1%3d2%3f'
     url_with_auth = add_auth(url, auth='u%40d:1%3d2%3f')
-    
+
     r = http('GET', url_with_auth)
-    
+
     # This should succeed with 200 OK, not 401
     assert HTTP_OK in r
     assert r.json == {'authenticated': True, 'user': 'u@d'}
-
-

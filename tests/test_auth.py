@@ -38,6 +38,17 @@ def test_bearer_auth(httpbin_both, token):
     assert r.json == {'authenticated': True, 'token': token}
 
 
+def test_bearer_auth_method_before_options(httpbin_both):
+    """Test fix for bug #1614: METHOD before --auth-type works correctly."""
+    # This used to raise AssertionError due to incorrect argument parsing
+    # when the METHOD appeared before the auth options
+    r = http('GET', '--auth-type', 'bearer', '--auth', 'test-token',
+             httpbin_both + '/bearer')
+
+    assert HTTP_OK in r
+    assert r.json == {'authenticated': True, 'token': 'test-token'}
+
+
 @mock.patch('httpie.cli.argtypes.AuthCredentials._getpass',
             new=lambda self, prompt: 'password')
 def test_password_prompt(httpbin):

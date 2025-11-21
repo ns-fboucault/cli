@@ -316,6 +316,45 @@ class TestArgumentParser:
                 key='old_item', value='b', sep='=', orig='old_item=b'),
         ]
 
+    def test_fix_argument_order_method_before_options(self):
+        """Test fix for bug #1614: METHOD before options causes misparsing."""
+        # Simulate: http POST --auth-type bearer https://example.org
+        # Argparse incorrectly parses as: method=None, url='POST', no_options=['https://example.org']
+        self.parser.args = argparse.Namespace()
+        self.parser.args.method = None
+        self.parser.args.url = 'POST'
+        self.parser.args.request_items = []
+        no_options = ['https://example.org']
+        
+        # Call _fix_argument_order to correct the misparsing
+        result = self.parser._fix_argument_order(no_options)
+        
+        # Verify the arguments were fixed
+        assert self.parser.args.method == 'POST'
+        assert self.parser.args.url == 'https://example.org'
+        assert result == []
+
+    def test_fix_argument_order_method_before_options_with_items(self):
+        """Test fix for bug #1614 with request items."""
+        # Simulate: http POST --auth-type bearer https://example.org foo=bar
+        # Argparse incorrectly parses as: method=None, url='POST', no_options=['https://example.org', 'foo=bar']
+        self.parser.args = argparse.Namespace()
+        self.parser.args.method = None
+        self.parser.args.url = 'POST'
+        self.parser.args.request_items = []
+        no_options = ['https://example.org', 'foo=bar']
+        
+        # Call _fix_argument_order to correct the misparsing
+        result = self.parser._fix_argument_order(no_options)
+        
+        # Verify the arguments were fixed
+        assert self.parser.args.method == 'POST'
+        assert self.parser.args.url == 'https://example.org'
+        assert len(self.parser.args.request_items) == 1
+        assert self.parser.args.request_items[0].key == 'foo'
+        assert self.parser.args.request_items[0].value == 'bar'
+        assert result == []
+
 
 class TestNoOptions:
 

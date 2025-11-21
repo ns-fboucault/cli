@@ -166,6 +166,8 @@ class HTTPieArgumentParser(BaseHTTPieArgumentParser):
         )
         self.has_input_data = self.has_stdin_data or self.args.raw is not None
         # Arguments processing and environment setup.
+        # Fix argument misparsing before processing no_options
+        no_options = self._fix_argument_order(no_options)
         self._apply_no_options(no_options)
         self._process_request_type()
         self._process_download_options()
@@ -192,6 +194,54 @@ class HTTPieArgumentParser(BaseHTTPieArgumentParser):
                 self.error('cannot combine --compress and --multipart')
 
         return self.args
+
+    def _fix_argument_order(self, no_options):
+        """Fix argument parsing issues caused by argparse's nargs=OPTIONAL
+        not working well with intermixed arguments.
+        
+        When METHOD is specified before options (e.g., POST --auth-type bearer URL),
+        argparse may incorrectly parse:
+          - method=None, url=POST, and URL+items end up in no_options
+        
+        This method detects and fixes such cases.
+        """
+        if (
+            self.args.method is None
+            and self.args.url
+            and re.match('^[a-zA-Z]+$', self.args.url)
+            and no_options
+            and len(no_options) >= 1
+            and not no_options[0].startswith('-')
+        ):
+            # Likely case: method was not parsed, URL is in method position,
+            # and actual URL (and possibly request items) are in no_options
+            self.args.method = self.args.url.upper()
+            self.args.url = no_options[0]
+            
+            # Any remaining items in no_options should be request items
+            # We need to parse them as KeyValue args and add to request_items
+            remaining = no_options[1:]
+            if remaining:
+                # Bug fix: Validate all items before adding any (atomicity)
+                parsed_items = []
+                for item_str in remaining:
+                    try:
+                        parsed_item = KeyValueArgType(
+                            *SEPARATOR_GROUP_ALL_ITEMS).__call__(item_str)
+                        parsed_items.append(parsed_item)
+                    except argparse.ArgumentTypeError:
+                        # If any item fails to parse, return it as an unrecognized arg
+                        # so _apply_no_options will handle the error
+                        return [item_str]
+                
+                # Bug fix: Initialize request_items if it's None
+                if self.args.request_items is None:
+                    self.args.request_items = []
+                
+                # All items parsed successfully, add them to request_items
+                self.args.request_items.extend(parsed_items)
+            return []
+        return no_options
 
     def _process_request_type(self):
         request_type = self.args.request_type
